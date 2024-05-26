@@ -5,7 +5,7 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
-from .views import login_view, verify_user_view, registration_view, forgot_password_view, reset_password_view, google_signin_view, refresh_postcode_view, send_query_view, get_all_postcodes_view, get_cleaner_booking_cost_view
+from .views import login_view, verify_user_view, registration_view, forgot_password_view, reset_password_view, google_signin_view, refresh_postcode_view, send_query_view, get_all_postcodes_view, get_cleaner_booking_cost_view, book_cleaner_view
 
 
 urlpatterns = [
@@ -21,4 +21,5 @@ urlpatterns = [
     path('send-query/', send_query_view, name='send_query_view'),
     path('get-all-postcodes/', get_all_postcodes_view, name='get_all_postcodes_view'),
     path('get-cleaner-booking_cost/', get_cleaner_booking_cost_view, name='get_cleaner_booking_cost_view'),
+    path('book-cleaner/', book_cleaner_view, name='book_cleaner_view'),
 ]

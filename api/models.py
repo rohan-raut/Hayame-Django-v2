@@ -22,10 +22,6 @@ class UserRole(models.Model):
         return self.user_role
 
 
-class Gender(models.Model):
-    id = models.AutoField(primary_key=True)
-    gender = models.CharField(max_length=20)
-
 
 class PublicHoliday(models.Model):
     id = models.AutoField(primary_key=True)
@@ -40,6 +36,7 @@ class BookingStatus(models.Model):
     id = models.AutoField(primary_key=True)
     status = models.CharField(max_length=50)
     status_sequence = models.IntegerField()
+
 
 class WorkerSkill(models.Model):
     id = models.AutoField(primary_key=True)
@@ -57,6 +54,7 @@ class PaymentMethod(models.Model):
 class Voucher(models.Model):
     id = models.AutoField(primary_key=True)
     voucher_code = models.CharField(max_length=50)
+    discount = models.DecimalField(max_digits=10, decimal_places=4, null=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
@@ -164,10 +162,10 @@ class PostCode(models.Model):
     zone = models.ForeignKey(Zone, on_delete=models.CASCADE)
 
     def __str__(self):
-        return self.post_code
+        return str(self.post_code)
 
 
-class Booking(models.Model):
+class CleanerBooking(models.Model):
     id = models.AutoField(primary_key=True)
     address = models.CharField(max_length=500)
     post_code = models.ForeignKey(PostCode, on_delete=models.PROTECT, null=True)
@@ -178,8 +176,7 @@ class Booking(models.Model):
     start_time = models.TimeField()
     no_of_hours = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     worker_count = models.IntegerField()
-    worker_gender = models.ForeignKey(Gender, on_delete=models.PROTECT)
-    worker_skill = models.ForeignKey(WorkerSkill, on_delete=models.PROTECT)
+    worker_gender = models.CharField(max_length=20)
     transportation_cost = models.DecimalField(max_digits=10, decimal_places=2)
     worker_cost = models.DecimalField(max_digits=10, decimal_places=2)
     total_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True)
@@ -201,7 +198,7 @@ class Worker(models.Model):
 
 class AllocateWorker(models.Model):
     id = models.AutoField(primary_key=True)
-    booking_id = models.ForeignKey(Booking, on_delete=models.PROTECT)
+    booking_id = models.ForeignKey(CleanerBooking, on_delete=models.PROTECT)
     worker_id = models.ForeignKey(Worker, on_delete=models.PROTECT)
 
 
@@ -215,7 +212,7 @@ class Notifications(models.Model):
 
 class Payment(models.Model):
     id = models.AutoField(primary_key=True)
-    booking_id = models.ForeignKey(Booking, on_delete=models.CASCADE)
+    booking_id = models.ForeignKey(CleanerBooking, on_delete=models.CASCADE)
     payment_status = models.CharField(max_length=50)
     transaction_id = models.CharField(max_length=100)
     amount = models.DecimalField(max_digits=10, decimal_places=2)

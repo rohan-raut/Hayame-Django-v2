@@ -17,7 +17,7 @@ from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import jwt
-from api.models import Account, Zone, PostCode, SkillCostForZone, WorkerSkill, PublicHoliday
+from api.models import Account, Zone, PostCode, SkillCostForZone, WorkerSkill, PublicHoliday, Voucher, CleanerBooking, BookingStatus
 from api.serializers import AccountSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from google.oauth2 import id_token
@@ -290,15 +290,7 @@ def get_all_postcodes_view(request):
     return Response(data)
 
 
-
-@api_view(['POST'])
-def get_cleaner_booking_cost_view(request):
-    frequency = request.data['frequency']
-    selected_date = request.data['selected_date']
-    no_of_hours = request.data['no_of_hours']
-    skill = request.data['skill']
-    postcode = request.data['postcode']
-
+def get_cost(frequency, start_date, no_of_hours, skill, postcode, voucher):
     skill = WorkerSkill.objects.get(skill=skill)
     postcode = PostCode.objects.get(post_code=postcode)
 
@@ -307,7 +299,7 @@ def get_cleaner_booking_cost_view(request):
     total_cost = 0
 
     cost_for_skill = SkillCostForZone.objects.get(skill=skill, zone=postcode.zone)
-    is_public_holiday = PublicHoliday.objects.filter(holiday_date=selected_date)
+    is_public_holiday = PublicHoliday.objects.filter(holiday_date=start_date)
 
     if(len(is_public_holiday) == 0):
         worker_cost = cost_for_skill.cost_per_hour_normal_day * int(no_of_hours)
@@ -319,27 +311,67 @@ def get_cleaner_booking_cost_view(request):
 
     total_cost = worker_cost + transportation_cost
 
+    voucher_obj = None
+
+    try:
+        voucher_obj = Voucher.objects.get(voucher_code=voucher, is_active=True)
+    except:
+        print("No voucher available")
+
+    discount = 0
+    if(voucher_obj != None):
+        discount = total_cost * voucher_obj.discount
+        total_cost = total_cost - discount
+
     data = {
         "worker_cost": worker_cost,
         "transportation_cost": transportation_cost,
-        "total_cost": total_cost
+        "total_cost": total_cost,
+        "discount": discount
     }
+
+    return data
+
+
+@api_view(['POST'])
+def get_cleaner_booking_cost_view(request):
+    frequency = request.data['frequency']
+    start_date = request.data['start_date']
+    no_of_hours = request.data['no_of_hours']
+    skill = request.data['skill']
+    postcode = request.data['postcode']
+    voucher = request.data['voucher']
+
+    data = get_cost(frequency, start_date, no_of_hours, skill, postcode, voucher)
 
     return Response(data)
 
 
-@api_view(['GET'])
+@api_view(['POST'])
 @permission_classes((IsAuthenticated,))
 def book_cleaner_view(request):
     frequency = request.data['frequency']
-    selected_date = request.data['selected_date']
+    start_date = request.data['start_date']
     no_of_hours = request.data['no_of_hours']
     start_time = request.data['start_time']
     address = request.data['address']
-    postcode = request.data['postcode']
+    postcode = int(request.data['postcode'])
     property_type = request.data['property_type']
+    voucher = request.data['voucher']
     payment_method = request.data['payment_method']
 
-    data = {}
+    cost_dic = get_cost(frequency, start_date, no_of_hours, "Cleaner", postcode, voucher)
+    postcode_obj = PostCode.objects.get(post_code=postcode)
+    manager = postcode_obj.zone.manager
+    booking_status_obj = BookingStatus.objects.get(status="Booking Complete")
+
+    booking_obj = CleanerBooking(address=address, post_code=postcode_obj, property_type=property_type, customer=request.user, frequency=frequency, start_date=start_date, start_time=start_time, no_of_hours=no_of_hours, worker_count=1, worker_gender="Male", transportation_cost=cost_dic['transportation_cost'], worker_cost=cost_dic['worker_cost'], total_cost=cost_dic['total_cost'], booking_status=booking_status_obj, managed_by=manager)
+
+    booking_obj.save()
+    
+    data = {
+        "success": True,
+        "response": "Booked Cleaner Successfully"
+    }
 
     return Response(data)

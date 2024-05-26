@@ -1,5 +1,5 @@
 from django.contrib import admin
-from api.models import Account, UserRole, Zone, PostCode, WorkerSkill, SkillCostForZone, PublicHoliday
+from api.models import Account, UserRole, Zone, PostCode, WorkerSkill, SkillCostForZone, PublicHoliday, CleanerBooking, Voucher, BookingStatus
 
 # Register your models here.
 
@@ -10,3 +10,6 @@ admin.site.register(PostCode)
 admin.site.register(WorkerSkill)
 admin.site.register(SkillCostForZone)
 admin.site.register(PublicHoliday)
+admin.site.register(CleanerBooking)
+admin.site.register(Voucher)
+admin.site.register(BookingStatus)
