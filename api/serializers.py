@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from api.models import Account, UserRole, PostCode
+from api.models import Account, UserRole, PostCode, CleanerBooking
 
 
 class AccountSerializer(serializers.ModelSerializer):
@@ -31,3 +31,11 @@ class AccountSerializer(serializers.ModelSerializer):
         account.save()
         return account
     
+
+
+class BookingHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CleanerBooking
+        fields = ['id', 'address', 'post_code', 'property_type', 'frequency', 'start_date', 'start_time', 'no_of_hours', 'total_cost']
+
+

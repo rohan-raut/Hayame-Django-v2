@@ -18,7 +18,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import jwt
 from api.models import Account, Zone, PostCode, SkillCostForZone, WorkerSkill, PublicHoliday, Voucher, CleanerBooking, BookingStatus
-from api.serializers import AccountSerializer
+from api.serializers import AccountSerializer, BookingHistorySerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from google.oauth2 import id_token
 from google.auth.transport import requests
@@ -130,6 +130,8 @@ def login_view(request):
             data['first_name'] = user.first_name
             data['last_name'] = user.last_name
             data['email'] = user.email
+            data['phone'] = user.phone
+            data['user_role'] = user.user_role.user_role
     else:
         data['response'] = "Wrong Credentials. Please try again."
         data['success'] = False
@@ -244,7 +246,14 @@ def google_signin_view(request):
         data['response'] = "Login Successful"
         token = get_tokens_for_user(user)
         token = token['access']
-        data['access_token'] = token   
+        data['access_token'] = token
+        data['user_id'] = user.id
+        data['first_name'] = user.first_name
+        data['last_name'] = user.last_name
+        data['email'] = user.email
+        data['phone'] = user.phone
+        data['user_role'] = user.user_role.user_role
+           
 
     return Response(data)
 
@@ -373,5 +382,49 @@ def book_cleaner_view(request):
         "success": True,
         "response": "Booked Cleaner Successfully"
     }
+
+    return Response(data)
+
+
+
+@api_view(['GET'])
+@permission_classes((IsAuthenticated,))
+def get_booking_history_view(request):
+    user = request.user
+
+    bookings = CleanerBooking.objects.filter(customer=user)
+    serializer = BookingHistorySerializer(bookings, many=True)
+
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes((IsAuthenticated,))
+def check_bookings_view(request):
+    user = request.user
+
+    booking_status_obj = BookingStatus.objects.get(status="Booking Complete")
+
+    bookings = CleanerBooking.objects.filter(booking_status=booking_status_obj)
+
+    if(user.user_role == "Manager"):
+        bookings = CleanerBooking.objects.filter(managed_by=user ,booking_status=booking_status_obj)
+
+    data = []
+
+    for booking in bookings:
+        data.append({
+            'id': booking.id,
+            'address': booking.address,
+            'property_type': booking.property_type,
+            'customer_name': booking.customer.first_name + ' ' + booking.customer.last_name,
+            'customer_email': booking.customer.email,
+            'customer_phone': booking.customer.phone,
+            'frequency': booking.frequency,
+            'start_date': booking.start_date,
+            'start_time': booking.start_time,
+            'no_of_hours': booking.no_of_hours,
+            'total_cost': booking.total_cost
+        })
 
     return Response(data)
