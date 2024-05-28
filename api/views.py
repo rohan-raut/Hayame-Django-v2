@@ -17,7 +17,7 @@ from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import jwt
-from api.models import Account, Zone, PostCode, SkillCostForZone, WorkerSkill, PublicHoliday, Voucher, CleanerBooking, BookingStatus
+from api.models import Account, Zone, PostCode, SkillCostForZone, WorkerSkill, PublicHoliday, Voucher, CleanerBooking, BookingStatus, UserRole
 from api.serializers import AccountSerializer, BookingHistorySerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from google.oauth2 import id_token
@@ -230,6 +230,8 @@ def reset_password_view(request, access_token):
 @api_view(['POST'])
 def google_signin_view(request):
     email = request.data['email']
+    first_name = request.data['first_name']
+    last_name = request.data['last_name']
     data = {}
     
     user = None
@@ -238,22 +240,27 @@ def google_signin_view(request):
     except:
         pass
 
+
     if(user == None):
-        data['success'] = False
-        data['response'] = 'Please register your account'
-    else:
-        data['success'] = True
-        data['response'] = "Login Successful"
-        token = get_tokens_for_user(user)
-        token = token['access']
-        data['access_token'] = token
-        data['user_id'] = user.id
-        data['first_name'] = user.first_name
-        data['last_name'] = user.last_name
-        data['email'] = user.email
-        data['phone'] = user.phone
-        data['user_role'] = user.user_role.user_role
-           
+        user_role = UserRole.objects.get(user_role="Customer")
+        password = Account.objects.make_random_password(length=100)
+        new_user = Account.objects.create_user(email=email, username=email, first_name=first_name, last_name=last_name, password=password, user_role=user_role)
+        new_user.is_verified = True
+        new_user.save()
+        user = new_user
+
+
+    data['success'] = True
+    data['response'] = "Login Successful"
+    token = get_tokens_for_user(user)
+    token = token['access']
+    data['access_token'] = token
+    data['user_id'] = user.id
+    data['first_name'] = user.first_name
+    data['last_name'] = user.last_name
+    data['email'] = user.email
+    data['phone'] = user.phone
+    data['user_role'] = user.user_role.user_role   
 
     return Response(data)
 

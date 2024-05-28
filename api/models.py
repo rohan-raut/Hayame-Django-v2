@@ -64,7 +64,7 @@ class Voucher(models.Model):
 # Master Tables
 
 class MyAccountManager(BaseUserManager):
-    def create_user(self, email, username, first_name, last_name, phone=None, password=None):
+    def create_user(self, email, username, first_name, last_name, user_role=None, phone=None, password=None):
         if not email:
             raise ValueError("User must have an email address")
         if not username:
@@ -76,6 +76,7 @@ class MyAccountManager(BaseUserManager):
             first_name = first_name,
             last_name = last_name,
             phone = phone,
+            user_role = user_role,
         )
 
         user.set_password(password)
@@ -109,7 +110,7 @@ class Account(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     user_role = models.ForeignKey(UserRole, on_delete=models.PROTECT, null=True)
-    phone = models.CharField(max_length=20)
+    phone = models.CharField(max_length=20, null=True)
     is_verified = models.BooleanField(default=False)
     date_joined = models.DateTimeField(verbose_name="date joined", auto_now_add=True)
     last_login = models.DateTimeField(verbose_name="last login", auto_now=True)
