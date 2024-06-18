@@ -37,5 +37,3 @@ class BookingHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = CleanerBooking
         fields = ['id', 'address', 'post_code', 'property_type', 'frequency', 'start_date', 'start_time', 'no_of_hours', 'total_cost']
-
-

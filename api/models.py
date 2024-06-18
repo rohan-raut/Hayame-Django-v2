@@ -166,12 +166,91 @@ class PostCode(models.Model):
         return str(self.post_code)
 
 
+
+class Addon(models.Model):
+    id = models.AutoField(primary_key=True)
+    skill = models.CharField(max_length=50)
+    addon_service = models.CharField(max_length=50)
+    cost_per_hour = models.DecimalField(max_digits=10, decimal_places=2)
+
+
 class CleanerBooking(models.Model):
     id = models.AutoField(primary_key=True)
+    booking_id = models.CharField(max_length=50, null=True)
     address = models.CharField(max_length=500)
     post_code = models.ForeignKey(PostCode, on_delete=models.PROTECT, null=True)
     property_type = models.CharField(max_length=50, null=True)
-    customer = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='customer')
+    customer = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='cleaner_customer')
+    frequency = models.CharField(max_length=50, null=True)
+    start_date = models.DateField()
+    start_time = models.TimeField()
+    no_of_hours = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    worker_count = models.IntegerField()
+    worker_gender = models.CharField(max_length=20)
+    addons = models.ForeignKey(Addon, on_delete=models.PROTECT, null=True)
+    addons_service_hours = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    transportation_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    worker_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    total_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    voucher = models.ForeignKey(Voucher, on_delete=models.PROTECT, null=True)
+    booking_status = models.ForeignKey(BookingStatus, on_delete=models.PROTECT)
+    booking_created_date = models.DateField(null=True)
+    managed_by = models.ForeignKey(Account, on_delete=models.PROTECT, null=True, related_name='cleaner_booking_manager')
+
+    def __str__(self):
+        return str(self.booking_id)
+
+
+class GardenerBooking(models.Model):
+    id = models.AutoField(primary_key=True)
+    booking_id = models.CharField(max_length=50)
+    address = models.CharField(max_length=500)
+    post_code = models.ForeignKey(PostCode, on_delete=models.PROTECT, null=True)
+    property_type = models.CharField(max_length=50, null=True)
+    customer = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='gardener_customer')
+    frequency = models.CharField(max_length=50, null=True)
+    start_date = models.DateField()
+    start_time = models.TimeField()
+    no_of_hours = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    square_feet = models.IntegerField()
+    worker_count = models.IntegerField()
+    worker_gender = models.CharField(max_length=20)
+    transportation_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    worker_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    total_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    voucher = models.ForeignKey(Voucher, on_delete=models.PROTECT, null=True)
+    booking_status = models.ForeignKey(BookingStatus, on_delete=models.PROTECT)
+    managed_by = models.ForeignKey(Account, on_delete=models.PROTECT, null=True, related_name='gardener_booking_manager')
+
+
+class MoverPackerBooking(models.Model):
+    id = models.AutoField(primary_key=True)
+    booking_id = models.CharField(max_length=50)
+    start_address = models.CharField(max_length=500)
+    end_address = models.CharField(max_length=500)
+    start_post_code = models.ForeignKey(PostCode, on_delete=models.PROTECT, null=True, related_name='start_postcode')
+    end_post_code = models.ForeignKey(PostCode, on_delete=models.PROTECT, null=True, related_name='end_postcode')
+    property_type = models.CharField(max_length=50, null=True)
+    has_lift = models.BooleanField()
+    floors = models.IntegerField()
+    customer = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='mover_packer_customer')
+    start_date = models.DateField()
+    start_time = models.TimeField()
+    no_of_boxes_to_pack = models.IntegerField() # esitmates box size needs to be considered
+    transportation_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    worker_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    total_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    booking_status = models.ForeignKey(BookingStatus, on_delete=models.PROTECT)
+    managed_by = models.ForeignKey(Account, on_delete=models.PROTECT, null=True, related_name='mover_packer_booking_manager')
+
+
+class GeneralWorkerBooking(models.Model):
+    id = models.AutoField(primary_key=True)
+    booking_id = models.CharField(max_length=50)
+    address = models.CharField(max_length=500)
+    post_code = models.ForeignKey(PostCode, on_delete=models.PROTECT, null=True)
+    property_type = models.CharField(max_length=50, null=True)
+    customer = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='general_worker_customer')
     frequency = models.CharField(max_length=50, null=True)
     start_date = models.DateField()
     start_time = models.TimeField()
@@ -183,7 +262,46 @@ class CleanerBooking(models.Model):
     total_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     voucher = models.ForeignKey(Voucher, on_delete=models.PROTECT, null=True)
     booking_status = models.ForeignKey(BookingStatus, on_delete=models.PROTECT)
-    managed_by = models.ForeignKey(Account, on_delete=models.PROTECT, null=True, related_name='user_booking_manager')
+    managed_by = models.ForeignKey(Account, on_delete=models.PROTECT, null=True, related_name='general_worker_booking_manager')
+
+
+
+class ElderlyCareBooking(models.Model):
+    id = models.AutoField(primary_key=True)
+    booking_id = models.CharField(max_length=50)
+    address = models.CharField(max_length=500)
+    post_code = models.ForeignKey(PostCode, on_delete=models.PROTECT, null=True)
+    customer = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='elderly_care_customer')
+    frequency = models.CharField(max_length=50, null=True)
+    start_date = models.DateField()
+    start_time = models.TimeField()
+    no_of_hours = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    worker_count = models.IntegerField()
+    worker_gender = models.CharField(max_length=20)
+    transportation_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    worker_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    total_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    voucher = models.ForeignKey(Voucher, on_delete=models.PROTECT, null=True)
+    booking_status = models.ForeignKey(BookingStatus, on_delete=models.PROTECT)
+    managed_by = models.ForeignKey(Account, on_delete=models.PROTECT, null=True, related_name='elderly_care_booking_manager')
+
+
+class TaskErrandsBooking(models.Model):
+    id = models.AutoField(primary_key=True)
+    booking_id = models.CharField(max_length=50)
+    address = models.CharField(max_length=500)
+    post_code = models.ForeignKey(PostCode, on_delete=models.PROTECT, null=True)
+    property_type = models.CharField(max_length=50, null=True)
+    customer = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='task_errands_customer')
+    task_type = models.CharField(max_length=50)
+    start_date = models.DateField()
+    start_time = models.TimeField()
+    transportation_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    worker_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    total_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    voucher = models.ForeignKey(Voucher, on_delete=models.PROTECT, null=True)
+    booking_status = models.ForeignKey(BookingStatus, on_delete=models.PROTECT)
+    managed_by = models.ForeignKey(Account, on_delete=models.PROTECT, null=True, related_name='task_errands_booking_manager')
 
 
 class Worker(models.Model):
@@ -195,6 +313,9 @@ class Worker(models.Model):
     email = models.EmailField(verbose_name="email", max_length=254, unique=True)
     passport_no = models.CharField(max_length=100)
     phone = models.CharField(max_length= 20)
+
+    def __str__(self):
+        return str(self.email)
 
 
 class AllocateWorker(models.Model):
@@ -219,4 +340,13 @@ class Payment(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     PaymentMethod = models.ForeignKey(PaymentMethod, on_delete=models.PROTECT)
 
+
+
+
+
+class FrequencyDiscount(models.Model):
+    id = models.AutoField(primary_key=True)
+    skill = models.CharField(max_length=50)
+    frequency = models.CharField(max_length=50)
+    discount_perc = models.DecimalField(max_digits=10, decimal_places=2)
 

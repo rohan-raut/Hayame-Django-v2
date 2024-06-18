@@ -17,20 +17,24 @@ from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import jwt
-from api.models import Account, Zone, PostCode, SkillCostForZone, WorkerSkill, PublicHoliday, Voucher, CleanerBooking, BookingStatus, UserRole
+from api.models import Account, Zone, PostCode, SkillCostForZone, WorkerSkill, PublicHoliday, Voucher, CleanerBooking, BookingStatus, UserRole, Addon, FrequencyDiscount, Worker
 from api.serializers import AccountSerializer, BookingHistorySerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from google.oauth2 import id_token
 from google.auth.transport import requests
+import datetime
 
 
-global sender_email, sender_name, password, sessions
+global sender_email, sender_name, password, sessions, config
 
 sender_email = "hayamedotmy@gmail.com"
 sender_name = "Hayame Admin"
 password = "dnndjbtorrxpyowx"
 
-sessions = 4
+
+config = {
+    'sessions': 4
+}
 
 
 # Create your views here.
@@ -139,6 +143,19 @@ def login_view(request):
 
 
 @api_view(['GET'])
+@permission_classes((IsAuthenticated,))
+def get_user_details_view(request):
+    data = {
+        'first_name': request.user.first_name,
+        'last_name': request.user.last_name,
+        'email': request.user.email,
+        'phone': request.user.phone,
+    }
+
+    return Response(data)
+
+
+@api_view(['GET'])
 def verify_user_view(request, access_token):
 
     decodedPayload = jwt.decode(access_token, algorithms=["HS256"], options={"verify_signature": False})
@@ -226,6 +243,29 @@ def reset_password_view(request, access_token):
     return Response(data)
 
 
+@api_view(['POST'])
+@permission_classes((IsAuthenticated,))
+def change_password_view(request):
+    password = request.data['password']
+    confirm_password = request.data['confirm_password']
+
+    data = {}
+    if(password == confirm_password):
+        user = Account.objects.get(id=request.user.id)
+        user.set_password(password)
+        user.save()
+        data = {
+            'success': True,
+            'response': 'Password changed successfully'
+        }
+    else:
+        data = {
+            'success': False,
+            'response': "Password and Confirm Password doesn't match"
+        }
+
+    return Response(data)
+
 
 @api_view(['POST'])
 def google_signin_view(request):
@@ -306,7 +346,7 @@ def get_all_postcodes_view(request):
     return Response(data)
 
 
-def get_cost(frequency, start_date, no_of_hours, skill, postcode, voucher):
+def get_cost(frequency, start_date, no_of_hours, skill, postcode, voucher, addon, addon_service_hours, worker_count):
     skill = WorkerSkill.objects.get(skill=skill)
     postcode = PostCode.objects.get(post_code=postcode)
 
@@ -322,10 +362,20 @@ def get_cost(frequency, start_date, no_of_hours, skill, postcode, voucher):
     else:
         worker_cost = cost_for_skill.cost_per_hour_public_holiday * int(no_of_hours)
 
-    if(frequency != "one-time"):
+    if(frequency == "weekly" or frequency == "fortnightly"):
         worker_cost = sessions * worker_cost
 
+    worker_cost = worker_cost * int(worker_count)
     total_cost = worker_cost + transportation_cost
+
+    try:
+        addon_obj = Addon.objects.get(addon_service=addon)
+        addon_cost = float(float(addon_obj.cost_per_hour) * addon_service_hours)
+        total_cost = float(total_cost) + addon_cost
+    except Exception as e:
+        print("Not able to find the addon - " + addon)
+        print(e)
+
 
     voucher_obj = None
 
@@ -336,8 +386,8 @@ def get_cost(frequency, start_date, no_of_hours, skill, postcode, voucher):
 
     discount = 0
     if(voucher_obj != None):
-        discount = total_cost * voucher_obj.discount
-        total_cost = total_cost - discount
+        discount = round(float(total_cost) * float(voucher_obj.discount), 2)
+        total_cost = float(total_cost) - discount
 
     data = {
         "worker_cost": worker_cost,
@@ -357,8 +407,11 @@ def get_cleaner_booking_cost_view(request):
     skill = request.data['skill']
     postcode = request.data['postcode']
     voucher = request.data['voucher']
+    addon = request.data['addon']
+    addon_service_hours = request.data['addon_service_hours']
+    worker_count = request.data['worker_count']
 
-    data = get_cost(frequency, start_date, no_of_hours, skill, postcode, voucher)
+    data = get_cost(frequency, start_date, no_of_hours, skill, postcode, voucher, addon, addon_service_hours, worker_count)
 
     return Response(data)
 
@@ -375,13 +428,35 @@ def book_cleaner_view(request):
     property_type = request.data['property_type']
     voucher = request.data['voucher']
     payment_method = request.data['payment_method']
+    phone = request.data['phone']
+    addon = request.data['addon']
+    addon_service_hours = request.data['addon_service_hours']
+    worker_count = request.data['worker_count']
 
-    cost_dic = get_cost(frequency, start_date, no_of_hours, "Cleaner", postcode, voucher)
+    if(phone != ""):
+        user = Account.objects.get(id=request.user.id)
+        user.phone = phone
+        user.save()
+
+    months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+    curr_date = datetime.datetime.now()
+
+    booking_complete_obj = BookingStatus.objects.get(status="Booking Complete")
+    successful_bookings = CleanerBooking.objects.filter(booking_status=booking_complete_obj, booking_created_date=datetime.date.today())
+
+    booking_id = str(curr_date.year) + months[curr_date.month - 1] + str(curr_date.day) + "-" + str(len(successful_bookings) + 1)
+    cost_dic = get_cost(frequency, start_date, no_of_hours, "Cleaner", postcode, voucher, addon, addon_service_hours, worker_count)
     postcode_obj = PostCode.objects.get(post_code=postcode)
     manager = postcode_obj.zone.manager
     booking_status_obj = BookingStatus.objects.get(status="Booking Complete")
 
-    booking_obj = CleanerBooking(address=address, post_code=postcode_obj, property_type=property_type, customer=request.user, frequency=frequency, start_date=start_date, start_time=start_time, no_of_hours=no_of_hours, worker_count=1, worker_gender="Male", transportation_cost=cost_dic['transportation_cost'], worker_cost=cost_dic['worker_cost'], total_cost=cost_dic['total_cost'], booking_status=booking_status_obj, managed_by=manager)
+    addon_obj = None
+    try:
+        addon_obj = Addon.objects.get(addon_service=addon)
+    except:
+        print("cannot find addon")
+
+    booking_obj = CleanerBooking(booking_id=booking_id, address=address, post_code=postcode_obj, property_type=property_type, customer=request.user, frequency=frequency, start_date=start_date, start_time=start_time, no_of_hours=no_of_hours, worker_count=worker_count, worker_gender="Male", addons=addon_obj, transportation_cost=cost_dic['transportation_cost'], worker_cost=cost_dic['worker_cost'], total_cost=cost_dic['total_cost'], booking_status=booking_status_obj, booking_created_date=datetime.date.today(), managed_by=manager)
 
     booking_obj.save()
     
@@ -433,5 +508,99 @@ def check_bookings_view(request):
             'no_of_hours': booking.no_of_hours,
             'total_cost': booking.total_cost
         })
+
+    return Response(data)
+
+
+@api_view(['GET'])
+def get_all_addons(request):
+    data = []
+    addons = Addon.objects.all()
+    for addon in addons:
+        data.append({
+            'skill': addon.skill,
+            'addon': addon.addon_service,
+            'cost': addon.cost
+        })
+    
+    return Response(data)
+
+@api_view(['POST'])
+def get_frequency_discount_by_skill_view(request):
+    skill = request.data['skill']
+    post_code = request.data['post_code']
+
+    post_code_obj = PostCode.objects.get(post_code=post_code)
+    skill_obj = WorkerSkill.objects.get(skill=skill)
+    worker_cost = SkillCostForZone.objects.get(zone=post_code_obj.zone, skill=skill_obj)
+    data = []
+
+    freq_discount_objs = FrequencyDiscount.objects.filter(skill=skill)
+    for obj in freq_discount_objs:
+        cost_for_normal_day = round(worker_cost.cost_per_hour_normal_day - (worker_cost.cost_per_hour_normal_day * obj.discount_perc), 0)
+        cost_for_public_holiday = round(worker_cost.cost_per_hour_public_holiday - (worker_cost.cost_per_hour_public_holiday * obj.discount_perc), 0)
+        data.append({
+            'frequency': obj.frequency,
+            'discount_perc': obj.discount_perc,
+            'worker_cost_normal_day': cost_for_normal_day,
+            'worker_cost_public_holiday': cost_for_public_holiday
+        })
+    
+    return Response(data)
+
+
+@api_view(['POST'])
+def get_available_slots(request):
+    post_code = request.data['post_code']
+    skill = request.data['skill']
+    start_date = request.data['start_date']
+    no_of_hours = request.data['no_of_hours']
+    worker_count = int(request.data['worker_count'])
+
+    skill_obj = WorkerSkill.objects.get(skill=skill)
+    worker_list = Worker.objects.filter(skill=skill_obj)
+
+    data = []
+    all_slots = [
+        {'value': '09:00', 'label': '9:00 am'},
+        {'value': '10:00', 'label': '10:00 am'},
+        {'value': '11:00', 'label': '11:00 am'},
+        {'value': '12:00', 'label': '12:00 pm'},
+        {'value': '13:00', 'label': '1:00 pm'},
+        {'value': '14:00', 'label': '2:00 pm'},
+        {'value': '15:00', 'label': '3:00 pm'},
+        {'value': '16:00', 'label': '4:00 pm'},
+        {'value': '17:00', 'label': '5:00 pm'},
+        {'value': '18:00', 'label': '6:00 pm'},
+        {'value': '19:00', 'label': '7:00 pm'},
+        {'value': '20:00', 'label': '8:00 pm'}
+    ]
+
+    data = all_slots
+
+    return Response(data)
+
+
+
+# Update API's
+
+@api_view(['POST'])
+@permission_classes((IsAuthenticated,))
+def update_user_details_view(request):
+    first_name = request.data['first_name']
+    last_name = request.data['last_name']
+    email = request.data['email']
+    phone = request.data['phone']
+
+    user = Account.objects.get(id=request.user.id)
+    user.first_name = first_name
+    user.last_name = last_name
+    user.phone = phone
+    user.save()
+
+    data = {
+        'success': True,
+        'response': 'User details updated successfully'
+    }
 
     return Response(data)
