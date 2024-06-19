@@ -456,7 +456,7 @@ def book_cleaner_view(request):
     except:
         print("cannot find addon")
 
-    booking_obj = CleanerBooking(booking_id=booking_id, address=address, post_code=postcode_obj, property_type=property_type, customer=request.user, frequency=frequency, start_date=start_date, start_time=start_time, no_of_hours=no_of_hours, worker_count=worker_count, worker_gender="Male", addons=addon_obj, transportation_cost=cost_dic['transportation_cost'], worker_cost=cost_dic['worker_cost'], total_cost=cost_dic['total_cost'], booking_status=booking_status_obj, booking_created_date=datetime.date.today(), managed_by=manager)
+    booking_obj = CleanerBooking(booking_id=booking_id, address=address, post_code=postcode, property_type=property_type, customer=request.user, frequency=frequency, start_date=start_date, start_time=start_time, no_of_hours=no_of_hours, worker_count=worker_count, worker_gender="Male", addons=addon_obj, addons_service_hours=addon_service_hours, transportation_cost=cost_dic['transportation_cost'], worker_cost=cost_dic['worker_cost'], total_cost=cost_dic['total_cost'], booking_status=booking_status_obj, booking_created_date=datetime.date.today(), managed_by=manager)
 
     booking_obj.save()
     

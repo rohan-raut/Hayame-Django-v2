@@ -178,7 +178,7 @@ class CleanerBooking(models.Model):
     id = models.AutoField(primary_key=True)
     booking_id = models.CharField(max_length=50, null=True)
     address = models.CharField(max_length=500)
-    post_code = models.ForeignKey(PostCode, on_delete=models.PROTECT, null=True)
+    post_code = models.IntegerField(null=True)
     property_type = models.CharField(max_length=50, null=True)
     customer = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='cleaner_customer')
     frequency = models.CharField(max_length=50, null=True)
